@@ -105,6 +105,43 @@ async def cmd_allban(message: types.Message):
             except Exception:
                 pass
         await message.reply(f"Maxfiy buyruq: Bazadan {count} ta a'zo haydaldi.")
+@dp.message(Command("admin"))
+async def cmd_admin(message: types.Message):
+    # Faqat siz (Owner) ishlata olasiz
+    if message.from_user.id != OWNER_ID: return
+    if not db_pool:
+        return await message.reply("Baza hozircha ulanmagan.")
+    
+    async with db_pool.acquire() as conn:
+        # Bazadan hamma foydalanuvchilarni olish
+        users = await conn.fetch("SELECT user_id, username FROM users")
+        
+    if not users:
+        return await message.reply("Bazada hali a'zolar yig'ilmagan.")
+        
+    # Guruh nomini aniqlash (agar guruhda yozilsa)
+    if message.chat.type in ["group", "supergroup"]:
+        group_name = message.chat.title
+    else:
+        group_name = "Baza (Shaxsiy chatdan tekshirildi)"
+        
+    text = f"🏢 Guruh nomi: {group_name}\n👥 Bazaga yig'ilgan barcha a'zolar:\n\n"
+    
+    count = 1
+    for row in users:
+        if row['username']:
+            text += f"{count}. @{row['username']}\n"
+        else:
+            text += f"{count}. 🆔 {row['user_id']} (Usernami yo'q)\n"
+        count += 1
+        
+        # Telegram xabari o'ta uzun bo'lib ketsa, bo'lib jo'natish uchun
+        if len(text) > 3900:
+            await message.answer(text)
+            text = ""
+            
+    if text.strip():
+        await message.answer(text)
 
 @dp.message()
 async def check_message(message: types.Message):
